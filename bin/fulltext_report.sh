@@ -31,7 +31,8 @@ UI_URL="$URL_PROTO_HOST/xmlui/handle/$COLLECTION_HDL/browse?type=title"
 OAI_URL="$URL_PROTO_HOST/oai/request?verb=ListIdentifiers&metadataPrefix=oai_dc&set=$OAI_SET_SPEC"
 
 EMAIL_DEST_LIST="me@example.com" 		                # CUSTOMISE
-EMAIL_SUBJECT="FAC full-text collection report"			# CUSTOMISE
+TIMESTAMP_PRETTY=`date "+%Y-%m-%d %H:%M:%S"`			# Timestamp for humans
+EMAIL_SUBJECT="FAC full-text collection report $TIMESTAMP_PRETTY"	# CUSTOMISE
 
 ##############################################################################
 ui_count=`wget -q -O - "$UI_URL" |
