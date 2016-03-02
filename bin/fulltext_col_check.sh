@@ -1,5 +1,5 @@
 #!/bin/sh
-# fulltext_report.sh
+# Usage:  fulltext_col_check.sh  [--email|-e]
 #
 # Copyright (c) 2016, Flinders University, South Australia. All rights reserved.
 # Contributors: Library, Information Services, Flinders University.

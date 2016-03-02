@@ -2,23 +2,22 @@
 
 Tools for creating and reporting on a DSpace full-text collection.
 
-## fulltext_report.sh
+## fulltext_col_check.sh
 
 This script does the following:
 
-- Gets a DSpace collection page from the User Interface (UI) and
-  reads the item count from it.
-- Gets a DSpace collection page from the OAI-PMH interface and
-  reads the item count from it.
-- Gives a warning if the 2 item counts differ.
+- Checks User-Interface item count and OAI-PMH item count & warns if the
+  item counts differ.
+- Checks if there are any non-mapped items & warns if any are found.
+- Checks if any items no longer have a bitstream & warns if any such
+  items are found.
 
 What can cause DSpace to give differing item counts?
 
-- When our collection had no submitters configured, our collection
-  (which only contained items mapped using the Batch Metadata
-  Editing Tool) had an OAI-PMH item count of zero. [DSpace 3.1]
-- We had an item containing 2 URLs in a single dc.rights field
-  (rather than 2 separate fields). This mapped item was counted
-  and visible within the XML-UI, but did not exist within the
-  OAI-PMH interface. [DSpace 3.1]
+- DSpace 3.1 bug: When an item is newly mapped to a collection using the
+  Batch Metadata Editing tool, DSpace does not update the last_modified
+  field. This causes such items to not appear at the OAI-PMH interface.
+- DSpace 3.1 bug: When an item is released from embargo, DSpace does
+  not update the last_modified field. This causes such items to not
+  appear at the OAI-PMH interface.
 
