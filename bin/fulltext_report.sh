@@ -36,9 +36,9 @@ HORIZ_LINE=`printf "%${HORIZ_LINE_LENGTH}s\n" "" |tr " " "$HORIZ_LINE_CHAR"`
 
 ##############################################################################
 OAI_SET_SPEC=`echo "$COLLECTION_HDL" |sed 's~^~col_~; s~/~_~'`	# Collection OAI-PMH set spec: col_nnnn_mmmm
+OAI_URL="$URL_PROTO_HOST/oai/request?verb=ListIdentifiers&metadataPrefix=oai_dc&set=$OAI_SET_SPEC"
 
 UI_URL="$URL_PROTO_HOST/xmlui/handle/$COLLECTION_HDL/browse?type=title"
-OAI_URL="$URL_PROTO_HOST/oai/request?verb=ListIdentifiers&metadataPrefix=oai_dc&set=$OAI_SET_SPEC"
 
 ##############################################################################
 DS_USER=$USER		# Database user: Assume same name as the Unix user
@@ -270,12 +270,19 @@ owning_collection, last_modified"
 }
 
 ##############################################################################
-# main()
-##############################################################################
-(
+run_all_checks() {
   intro
   check_item_counts
   check_if_nonmapped_items
   check_if_no_bitstreams
-) |mailx -s "$EMAIL_SUBJECT" $EMAIL_DEST_LIST
+}
+
+##############################################################################
+# main()
+##############################################################################
+if [ "$1" = --email -o "$1" = -e ]; then
+  run_all_checks |mailx -s "$EMAIL_SUBJECT" $EMAIL_DEST_LIST
+else
+  run_all_checks
+fi
 
