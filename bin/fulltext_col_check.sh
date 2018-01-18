@@ -30,16 +30,6 @@ EMAIL_DEST_LIST="me@example.com" 		                # CUSTOMISE
 TIMESTAMP_PRETTY=`date "+%Y-%m-%d %H:%M:%S"`			# Timestamp for humans
 EMAIL_SUBJECT="FAC full-text collection check $TIMESTAMP_PRETTY"	# CUSTOMISE
 
-HORIZ_LINE_CHAR='*'
-HORIZ_LINE_LENGTH=60
-HORIZ_LINE=`printf "%${HORIZ_LINE_LENGTH}s\n" "" |tr " " "$HORIZ_LINE_CHAR"`
-
-##############################################################################
-OAI_SET_SPEC=`echo "$COLLECTION_HDL" |sed 's~^~col_~; s~/~_~'`	# Collection OAI-PMH set spec: col_nnnn_mmmm
-OAI_URL="$URL_PROTO_HOST/oai/request?verb=ListIdentifiers&metadataPrefix=oai_dc&set=$OAI_SET_SPEC"
-
-UI_URL="$URL_PROTO_HOST/xmlui/handle/$COLLECTION_HDL/browse?type=title"
-
 ##############################################################################
 DS_USER=$USER		# CUSTOMISE: Database user: Assume same name as the Unix user
 DS_DB=dspace		# CUSTOMISE: Database name
@@ -47,17 +37,26 @@ DS_HOST="dspace-db.example.com"				# CUSTOMISE: Database remotehost
 DS_CONNECT_OPTS="-h $DS_HOST -U $DS_USER -d $DS_DB"	# CUSTOMISE: Connect options
 IS_DSPACE5=1		# CUSTOMISE: 1=DSpace 5 database schema; 0=DSpace 3 schema
 
+##############################################################################
+# Optionally override any of the above variables.
+ENV_FNAME=`echo $0 |sed 's/\.sh$/_env.sh/'`	# Path to fulltext_col_check_env.sh
+[ -f $ENV_FNAME ] && . $ENV_FNAME
+
+##############################################################################
+OAI_SET_SPEC=`echo "$COLLECTION_HDL" |sed 's~^~col_~; s~/~_~'`	# Collection OAI-PMH set spec: col_nnnn_mmmm
+OAI_URL="$URL_PROTO_HOST/oai/request?verb=ListIdentifiers&metadataPrefix=oai_dc&set=$OAI_SET_SPEC"
+UI_URL="$URL_PROTO_HOST/xmlui/handle/$COLLECTION_HDL/browse?type=title"
+
+HORIZ_LINE_CHAR='*'
+HORIZ_LINE_LENGTH=60
+HORIZ_LINE=`printf "%${HORIZ_LINE_LENGTH}s\n" "" |tr " " "$HORIZ_LINE_CHAR"`
+
 # DSpace resource_type_id
 # See https://github.com/DSpace/DSpace/blob/master/dspace-api/src/main/java/org/dspace/core/Constants.java
 TYPE_BITSTREAM=0
 TYPE_BUNDLE=1
 TYPE_ITEM=2
 TYPE_COLLECTION=3
-
-##############################################################################
-# Optionally override any of the above variables.
-ENV_FNAME=`echo $0 |sed 's/\.sh$/_env.sh/'`	# Path to fulltext_col_check_env.sh
-[ -f $ENV_FNAME ] && . $ENV_FNAME
 
 ##############################################################################
 intro() {
