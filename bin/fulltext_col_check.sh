@@ -1,8 +1,8 @@
 #!/bin/sh
 # Usage:  fulltext_col_check.sh  [--email|-e]
 #
-# Copyright (c) 2016, Flinders University, South Australia. All rights reserved.
-# Contributors: Library, Information Services, Flinders University.
+# Copyright (c) 2016-2018, Flinders University, South Australia. All rights reserved.
+# Contributors: Library, Corporate Services, Flinders University.
 # See the accompanying LICENSE file (or http://opensource.org/licenses/BSD-3-Clause).
 #
 # This script does the following:
@@ -41,14 +41,23 @@ OAI_URL="$URL_PROTO_HOST/oai/request?verb=ListIdentifiers&metadataPrefix=oai_dc&
 UI_URL="$URL_PROTO_HOST/xmlui/handle/$COLLECTION_HDL/browse?type=title"
 
 ##############################################################################
-DS_USER=$USER		# Database user: Assume same name as the Unix user
-DS_DB=dspace		# Database name
+DS_USER=$USER		# CUSTOMISE: Database user: Assume same name as the Unix user
+DS_DB=dspace		# CUSTOMISE: Database name
+DS_HOST="dspace-db.example.com"				# CUSTOMISE: Database remotehost
+DS_CONNECT_OPTS="-h $DS_HOST -U $DS_USER -d $DS_DB"	# CUSTOMISE: Connect options
+IS_DSPACE5=1		# CUSTOMISE: 1=DSpace 5 database schema; 0=DSpace 3 schema
 
 # DSpace resource_type_id
 # See https://github.com/DSpace/DSpace/blob/master/dspace-api/src/main/java/org/dspace/core/Constants.java
 TYPE_BITSTREAM=0
+TYPE_BUNDLE=1
 TYPE_ITEM=2
 TYPE_COLLECTION=3
+
+##############################################################################
+# Optionally override any of the above variables.
+ENV_FNAME=`echo $0 |sed 's/\.sh$/_env.sh/'`	# Path to fulltext_col_check_env.sh
+[ -f $ENV_FNAME ] && . $ENV_FNAME
 
 ##############################################################################
 intro() {
@@ -118,7 +127,7 @@ check_if_nonmapped_items() {
   query_count="$query"
 
   query_nonmapped_items		# Detailed list of non-mapped items
-  results=`echo "$query_count; $query" |psql -U $DS_USER -d $DS_DB -A`
+  results=`echo "$query_count; $query" |psql $DS_CONNECT_OPTS -A`
 
   echo "$HORIZ_LINE"
   echo "Check if any items are not mapped"
@@ -189,17 +198,18 @@ check_if_no_bitstreams() {
   query_count="$query"
 
   query_no_bitstreams		# Detailed list of items with no bitstreams
-  results=`echo "$query_count; $query" |psql -U $DS_USER -d $DS_DB -A`
+  results=`echo "$query_count; $query" |psql $DS_CONNECT_OPTS -A`
 
   echo "$HORIZ_LINE"
   echo "Check if any items no longer have a bitstream"
   echo "$HORIZ_LINE"
   echo
-  if [ `echo "$results" |head -1` = 0 ]; then
+  count=`echo "$results" |head -1`
+  if [ "$count" = 0 ]; then
     echo "GOOD: All items in the full-text collection (still) have bitstreams."
   else
     echo "**WARNING**"
-    echo "  The following items in the full-text collection no longer have (non-licenced,"
+    echo "  The following items in the full-text collection no longer have (non-licence,"
     echo "  non-deleted and non-embargoed) bitstreams. Please investigate."
     echo
     echo "$results" |awk 'NR>1'
@@ -223,6 +233,18 @@ owning_collection, last_modified"
     forcequote_clause="force quote item_id, owning_collection, last_modified, item_hdl"
   fi
 
+  if [ $IS_DSPACE5 = 1 ]; then
+    bundle_clause=`cat <<-EOSQL_BUNDLE_CLAUSE
+
+		      select resource_id from metadatavalue where text_value='ORIGINAL' and resource_type_id=$TYPE_BUNDLE and metadata_field_id in
+		        (select metadata_field_id from metadatafieldregistry where element='title' and qualifier is null)
+
+	EOSQL_BUNDLE_CLAUSE
+`
+  else
+    bundle_clause="select bundle_id from bundle where name='ORIGINAL'"
+  fi
+
   sql=`cat <<-EOSQL_NO_BITSTREAMS
 		select
 		  $select_clause
@@ -240,14 +262,15 @@ owning_collection, last_modified"
 		    )
 		  ) and
 
-		  -- Does NOT have (non-licenced, non-deleted and non-embargoed) bitstream
+		  -- Does NOT have (non-licence, non-deleted and non-embargoed) bitstream
 		  item_id not in (
 		    select item_id from item2bundle where bundle_id in (
-		      select bundle_id from bundle where name='ORIGINAL' and bundle_id in (
-		        select bundle_id from bundle2bitstream where bitstream_id in (
-		          select bitstream_id from bitstream where deleted<>'t' and bitstream_id not in (
-		            select resource_id from resourcepolicy where resource_type_id=$TYPE_BITSTREAM and start_date > 'now'
-		          )
+		      $bundle_clause
+		    )
+		    and bundle_id in (
+		      select bundle_id from bundle2bitstream where bitstream_id in (
+		        select bitstream_id from bitstream where deleted<>'t' and bitstream_id not in (
+		          select resource_id from resourcepolicy where resource_type_id=$TYPE_BITSTREAM and start_date > 'now'
 		        )
 		      )
 		    )
