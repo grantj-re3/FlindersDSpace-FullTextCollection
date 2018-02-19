@@ -69,6 +69,46 @@ intro() {
 }
 
 ##############################################################################
+# Return a warning message if argument is not an integer
+##############################################################################
+warn_if_not_int() {
+  int="$1"
+  warning=""
+  if ! echo "$int" |egrep -q "^[[:digit:]]+$"; then
+    warning=" WARNING - not an integer!"
+  fi
+}
+
+##############################################################################
+# Withdrawn-discoverable items are items which have been withdrawn from
+# the DSpace repository but a record is still present for the item within
+# OAI-PMH with <header status="deleted">.
+##############################################################################
+query_withdrawn_discoverable_items() {
+  sql=`cat <<-EOSQL_WITHDRAWN_ITEMS
+		select count(*)
+		from item
+		where
+		  withdrawn='t' and discoverable='t' and item_id in (
+		    select item_id from collection2item where collection_id =
+		      (select resource_id from handle where resource_type_id=$TYPE_COLLECTION and handle='$COLLECTION_HDL')
+		    )
+	EOSQL_WITHDRAWN_ITEMS
+`
+
+  query=`cat <<-EOQRY_WITHDRAWN_ITEMS
+		copy (
+		$sql
+		)
+		to stdout
+		with
+		delimiter ','
+		csv
+	EOQRY_WITHDRAWN_ITEMS
+`
+}
+
+##############################################################################
 # Check User-Interface item count versus OAI-PMH item count
 ##############################################################################
 check_item_counts() {
@@ -81,22 +121,26 @@ check_item_counts() {
     grep "completeListSize" |
     sed 's~^.*completeListSize="~~; s~".*$~~'`
 
-  ui_warning=""
-  if ! echo "$ui_count" |egrep -q "^[[:digit:]]+$"; then
-    ui_warning=" WARNING - not an integer!"
-  fi
+  query_withdrawn_discoverable_items
+  oai_del_count=`echo "$query" |psql $DS_CONNECT_OPTS -A`
 
-  oai_warning=""
-  if ! echo "$oai_count" |egrep -q "^[[:digit:]]+$"; then
-    oai_warning=" WARNING - not an integer!"
-  fi
+  warn_if_not_int "$ui_count"
+  ui_warning="$warning"
+
+  warn_if_not_int "$oai_count"
+  oai_warning="$warning"
+
+  warn_if_not_int "$oai_del_count"
+  oai_del_warning="$warning"
 
   count_msg=""
-  if [ -z "$ui_warning" -a -z "$oai_warning" ]; then
-    if [ "$ui_count" = "$oai_count" ]; then
-      count_msg="GOOD: The UI and OAI-PMH item counts are the same."
+  oai_net_count=""
+  if [ -z "$ui_warning" -a -z "$oai_warning" -a -z "$oai_del_warning" ]; then
+    oai_net_count=`expr $oai_count - $oai_del_count`
+    if [ "$ui_count" = "$oai_net_count" ]; then
+      count_msg="GOOD: The UI and OAI-PMH net item counts are the same."
     else
-      count_msg="**WARNING** The UI and OAI-PMH item counts differ. Please investigate."
+      count_msg="**WARNING** The UI and OAI-PMH net item counts differ. Please investigate."
     fi
   else
     count_msg="Cannot compare UI and OAI-PMH item counts due to warning below. Please investigate."
@@ -108,12 +152,17 @@ check_item_counts() {
 		$HORIZ_LINE
 
 		$count_msg
-		  User-Interface item count:  '$ui_count'$ui_warning
-		  OAI-PMH item count:         '$oai_count'$oai_warning
+		  User-Interface item count:    '$ui_count'$ui_warning
+
+		  OAI-PMH gross item count:     '$oai_count'$oai_warning
+		  OAI-PMH deleted item count:   '$oai_del_count'$oai_del_warning
+		  OAI-PMH net item count:       '$oai_net_count'
 
 		where
-		  UI URL:      $UI_URL
-		  OAI-PMH URL: $OAI_URL
+		- UI URL:      $UI_URL
+		- OAI-PMH URL: $OAI_URL
+		- Withdrawn but discoverable items appear in the OAI-PMH feed as
+		  'deleted' records (so should be deducted from the gross count).
 
 	EOMSG_ITEM_COUNTS
 }
