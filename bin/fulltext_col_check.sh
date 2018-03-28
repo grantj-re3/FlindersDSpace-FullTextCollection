@@ -37,6 +37,8 @@ DS_HOST="dspace-db.example.com"				# CUSTOMISE: Database remotehost
 DS_CONNECT_OPTS="-h $DS_HOST -U $DS_USER -d $DS_DB"	# CUSTOMISE: Connect options
 IS_DSPACE5=1		# CUSTOMISE: 1=DSpace 5 database schema; 0=DSpace 3 schema
 
+WGET_CLI="wget -q"	# CUSTOMISE: CLI including common switches for this app
+
 ##############################################################################
 # Optionally override any of the above variables.
 ENV_FNAME=`echo $0 |sed 's/\.sh$/_env.sh/'`	# Path to fulltext_col_check_env.sh
@@ -112,12 +114,12 @@ query_withdrawn_discoverable_items() {
 # Check User-Interface item count versus OAI-PMH item count
 ##############################################################################
 check_item_counts() {
-  ui_count=`wget -q -O - "$UI_URL" |
+  ui_count=`$WGET_CLI -O - "$UI_URL" |
     egrep class.*pagination-info |
     head -1 |
     sed 's~</p>.*$~~; s~^.* ~~'`
 
-  oai_count=`wget -q -O - "$OAI_URL" |
+  oai_count=`$WGET_CLI -O - "$OAI_URL" |
     grep "completeListSize" |
     sed 's~^.*completeListSize="~~; s~".*$~~'`
 
